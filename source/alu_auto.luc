@@ -1,0 +1,270 @@
+module alu_auto #(
+    CLK_FREQ = 10000000) 
+(
+    input clk,  // clock
+    input rst,  // reset
+    input io_button[5],
+    input io_dip[3][8],
+    output io_led[3][8],
+    output io_segment[8],
+    output io_select[4],
+    output led[8]
+) {
+    enum States_MANUAL{
+        IDLE,
+        STORE16AFIRST,
+        STORE16ALAST,
+        STORE16BFIRST,
+        STORE16BLAST,
+        SETALU,
+        DISPLAY
+        
+        
+    }
+    
+enum States_AUTO{
+        IDLE,
+        RESULT,
+        DISPLAYA,
+        DISPLAYB,
+        DISPLAYALUFN,
+        CHECKER,
+        ERR
+
+    }
+    
+    sig slowclock
+    const CLK_FREQ1 = $is_sim() ? 1000: 10000000
+    const SLOW_CLOCK_DEFAULT_SPEED = $is_sim() ? 9 : 25
+    rom_A rom_a
+    rom_B rom_b
+    rom_ALUFN rom_alufn
+    rom_ExpectedOutput rom_out
+    
+    alu alu
+    .clk(clk){
+        edge_detector io_button_edge[5](#RISE(5x{{1}}),#FALL(5x{{0}}))
+        button_conditioner io_button_cond[5](#CLK_FREQ(5x{{CLK_FREQ1}}))
+        edge_detector slow_clock_edge(#RISE(1),#FALL(0))
+        .rst(rst){
+            dff states[$width(States_MANUAL)](#INIT(States_MANUAL.IDLE))
+            dff states1[$width(States_AUTO)](#INIT(States_AUTO.IDLE))
+            dff afirsthalf[16]
+            dff asecondthalf[16]
+            dff bfirsthalf[16]
+            dff bsecondhalf[16]
+            dff alufn[6]
+            dff result[32](#INIT(32b0))
+            dff counter[32]
+            dff speed_pointer[5](#INIT(SLOW_CLOCK_DEFAULT_SPEED))
+            dff slow_clock_enable(#INIT(0))
+            dff counter_ROM[6](#INIT(0))
+            dff zsig(#INIT(1))
+            dff vsig(#INIT(0))
+            dff nsig
+            dff manuallock(#INIT(0))
+            dff checkersig(#INIT(0))
+        }
+    }
+    always {
+        // implement alu tester logic here
+        
+        rom_a.address = counter_ROM.q
+        rom_b.address = counter_ROM.q
+        rom_alufn.address = counter_ROM.q
+        rom_out.address = counter_ROM.q
+        alu.a = c{afirsthalf.q,asecondthalf.q}
+        alu.b = c{bfirsthalf.q,bsecondhalf.q}
+        alu.alufn = alufn.q
+        //dff default value, to be changed in switch case
+        afirsthalf.d = afirsthalf.q
+        asecondthalf.d = asecondthalf.q
+        bfirsthalf.d = bfirsthalf.q
+        bsecondhalf.d = bsecondhalf.q
+        alufn.d = alufn.q
+        result.d = result.q
+        states1.d = states1.q
+        counter_ROM.d = counter_ROM.q
+        zsig.d = zsig.q
+        vsig.d = vsig.q
+        nsig.d = nsig.q
+        manuallock.d = manuallock.q
+        checkersig.d = checkersig.q
+        
+        
+        speed_pointer.d = speed_pointer.q // Set up the speed of the counter before we start the counter machine
+        counter.d = counter.q + 1
+        slowclock = counter.q[speed_pointer.q]
+
+        states.d = states.q
+
+        io_button_cond.in = io_button[4:0]
+        io_button_edge.in = io_button_cond.out
+        
+        
+        slow_clock_edge.in = slowclock // Edge detector takes in the slow_clock signal at rising edge only
+        slow_clock_enable.d = slow_clock_enable.q
+        
+        case(slow_clock_enable.q){
+            0:
+            slow_clock_edge.in = 0 // always don't increment or decrement if "no edge signal"
+            1:
+            slow_clock_edge.in = slowclock // If "yes edge signal" , output wtv we have as the slow_clock signal
+            //default:
+            //slow_clock_edge.in = 0 // default the edge signal to 0 first
+        }
+        
+        
+        
+        io_led = {result.q[31:24],result.q[23:16],result.q[7:0]}
+        io_segment = 0
+        io_select = 4hF
+        led = c{slowclock,3b0,checkersig.q,zsig.q,vsig.q,nsig.q}
+
+       case(states1.q){
+            States_AUTO.IDLE:
+            if((~slow_clock_enable.q && io_button_edge.out[1]) && ~manuallock.q){
+            slow_clock_enable.d = 1
+            states1.d = States_AUTO.DISPLAYA
+                }
+            else if (slow_clock_enable.q && checkersig.q && ~manuallock.q){
+                    counter_ROM.d = counter_ROM.q + 1
+                    states1.d = States_AUTO.DISPLAYA  
+                }
+            else if (slow_clock_enable.q && ~checkersig.q && ~manuallock.q){
+                slow_clock_enable.d = 0
+                manuallock.d = 0
+                states1.d = States_AUTO.IDLE
+                }
+            //else if((slow_clock_enable.q && io_button_edge.out[0])&&(counter_ROM.q<31)){
+            //counter_ROM.d = counter_ROM.q + 1
+            //states1.d = States_AUTO.DISPLAYA       
+                //}
+                
+            //else if(slow_clock_enable.q && io_button_edge.out[2]){ //reload test case
+            //states1.d = States_AUTO.DISPLAYA       
+              //  }
+            //else if(~slow_clock_enable.q && io_button_edge.out[3]){ //switch to manual, honestly not needed
+            //slow_clock_enable.d = 0
+            //manuallock.d = 0
+            //result.d = 32b0
+            //zsig.d = 1
+            //vsig.d = 0
+            //nsig.d = 0
+            //checkersig.d = 0
+            //states1.d = States_MANUAL.IDLE     
+              //  }
+
+            States_AUTO.DISPLAYA:
+            if(slow_clock_edge.out){
+            result.d = rom_a.element
+            afirsthalf.d = rom_a.element[31:16]
+            asecondthalf.d = rom_a.element[15:0]
+            states1.d = States_AUTO.DISPLAYB
+                }
+            States_AUTO.DISPLAYB:
+            if(slow_clock_edge.out){
+            result.d = rom_b.element
+            bfirsthalf.d = rom_b.element[31:16]
+            bsecondhalf.d = rom_b.element[15:0] 
+            states1.d = States_AUTO.DISPLAYALUFN
+                }
+
+            States_AUTO.DISPLAYALUFN:
+            if(slow_clock_edge.out){
+            result.d = c{26b0,rom_alufn.element}
+            alufn.d = rom_alufn.element
+            states1.d = States_AUTO.RESULT
+                }
+
+            States_AUTO.RESULT:
+            if(slow_clock_edge.out){
+            result.d = alu.out
+            zsig.d = alu.z
+            vsig.d = alu.v
+            nsig.d = alu.n
+            states1.d = States_AUTO.ERR
+                }
+            
+            States_AUTO.ERR:
+            if(slow_clock_edge.out){
+            if(io_dip[2][7]){
+                result.d[0] = ~result.q[0]
+                    }
+            states1.d = States_AUTO.CHECKER
+                }
+            
+            States_AUTO.CHECKER:
+            if(slow_clock_edge.out){
+            if(result.q == rom_out.element){
+            checkersig.d = 1
+                }
+            else{
+                checkersig.d = 0      
+                 }
+            states1.d = States_AUTO.IDLE
+                }  
+        } 
+        
+
+         case(states.q){
+            States_MANUAL.IDLE:
+                if (io_button_edge.out[0] && ~manuallock.q){
+                    manuallock.d = 1
+                    
+                    states.d = States_MANUAL.STORE16AFIRST
+                }
+
+                else if (io_button_edge.out[1] && manuallock.q){
+                    states.d = States_MANUAL.STORE16ALAST
+                }
+                else if (io_button_edge.out[2]&& manuallock.q){
+                    states.d = States_MANUAL.STORE16BFIRST
+                }
+                else if (io_button_edge.out[4]&& manuallock.q){
+                    states.d = States_MANUAL.STORE16BLAST
+                }
+                else if (io_button_edge.out[3]&& manuallock.q){
+                    states.d = States_MANUAL.SETALU
+                }
+                else if (io_dip[2][7]){
+                    states.d = States_MANUAL.DISPLAY
+                }
+            
+            States_MANUAL.STORE16AFIRST:
+            afirsthalf.d = c{io_dip[1],io_dip[0]}
+            result.d = c{c{io_dip[1],io_dip[0]},16b0}
+            states.d = States_MANUAL.IDLE
+            
+            States_MANUAL.STORE16ALAST:
+            asecondthalf.d = c{io_dip[1],io_dip[0]}
+            result.d = c{afirsthalf.q,io_dip[1],io_dip[0]}
+            states.d = States_MANUAL.IDLE
+            
+            States_MANUAL.STORE16BFIRST:
+            bfirsthalf.d = c{io_dip[1],io_dip[0]}
+            result.d = c{c{io_dip[1],io_dip[0]},16b0}
+            states.d = States_MANUAL.IDLE
+            
+            States_MANUAL.STORE16BLAST:
+            bsecondhalf.d = c{io_dip[1],io_dip[0]}
+            result.d = c{bfirsthalf.q,io_dip[1],io_dip[0]}
+            states.d = States_MANUAL.IDLE
+            
+            States_MANUAL.SETALU:
+            alufn.d = io_dip[2][5:0]
+            result.d = c{26b0,io_dip[2][5:0]}
+            states.d = States_MANUAL.IDLE
+            
+            States_MANUAL.DISPLAY:
+            result.d = alu.out
+            zsig.d = alu.z
+            vsig.d = alu.v
+            nsig.d = alu.n
+            states.d = States_MANUAL.IDLE
+            
+            
+        }
+    }
+    
+}

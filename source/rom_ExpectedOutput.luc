@@ -1,0 +1,47 @@
+module rom_ExpectedOutput (
+    input address[6],
+    output element[32]
+) {
+    
+    sig out[32]
+    
+    always {
+        case (address) {
+      0: out = 32b00001000; // ADD: positive numbers, A=3, B=5, output=8
+      1: out = 32h80000000; // ADD: check for overflow, A=MAX_VALUE(+ve), B=1, output=MIN_VALUE
+      2: out = 32b00000100; // SUB: normal subtraction, A=7, B=3, output=4
+      3: out = 32h7FFFFFFF; // SUB: check for underflow, A=MIN_VALUE, B=5, output=MAX_VALUE(+ve)     !! check 
+      4: out = 32h80000001; // SUB: check Boundary Values(), A=0, B=MAX_VALUE, output=negative MAX_VALUE
+      5: out = 32b00101000; // MUL: Positive values, A=8, B=5, output=40 done
+      6: out = 32b00000000; // MUL: zero multiplication, A=32, B=0, output=0 done
+      7: out = 32h7FFFFFFF; // MUL: multiplication by 1, A=MAX_VALUE, B=1, output=MAX_VALUE            
+      8: out = 32b00000000; // AND: with zero, A=110, B=0, output=0 done
+      9: out = 32b00000000; // AND: with complements, A=170, B=-171(FFFFFF55), ouput=0  
+      10: out = 32b10101010; // AND: with ones, A=170, B=-1(32hFFFFFFFF), output=170
+      11: out = 32b10101010; //OR: with zeroes, A=170, B=0, ouput=170
+      12: out = 32hFFFFFFFF; // OR: with ones, A=170, B=-1(32hFFFFFFFF), ouput=-1(32hFFFFFFFF)
+      13: out = 32b10101010; // OR: with self, check for identity, A=170, B=170, ouput=170
+      14: out = 32b10101010; // XOR: identity, A=170, B=0, ouput=170
+      15: out = 32hFFFFFFFF; // XOR: complement, A=170, B=-171(FFFFFF55), ouput=all 1s(32hFFFFFFFF)     
+      16: out = 32b10101010; // LDR: i think outputs A, A=170, B=5, output=170                        !!! check 
+      17: out = 32b10101010; // SHL: zero shift, A=170, B=0, output=170
+      18: out = 32h80000000; // SHL: max shift, A=-1(32hFFFFFFFF), B=31, output=32h80000000(only MSB 1, rest 0)
+      19: out = 32hF00000F0; // SHL: boundary A=0x0F00000F, B=4, output=0xF00000F0
+      20: out = 32b01010101; // SHR: zero shift, A=85, B=0, output=85 done
+      21: out = 32b00000001; // SHR: max shift, A=32h80000000, B=31, output=1
+      22: out = 32hF8000000; // SRA: shift right with sign complement, A=0x80000000, B=4, output=0xF8000000
+      23: out = 32b00000001; // CMPEQ: true, A=5, B=5, output=1
+      24: out = 32b00000000; // CMPEQ: false, A=3, B=5, output=0
+      25: out = 32b00000001; // CMPLT: true, A=3, B=5, output=1
+      26: out = 32b00000000; // CMPLT: false if A greater than B, A=16, B=5, output=0
+      27: out = 32b00000000; // CMPLT: false if A = B, A=5, B=5, output=0
+      28: out = 32b00000001; // CMPLE: true, A=3, B=5, output=1
+      29: out = 32b00000000; // CMPLE: false, A=40, B=5, output=0
+      30: out = 32b00001000; // Division: normal div, A=40, B=5, output=8
+      default: out = 32b0000000;
+        }
+        element = out;
+    }
+}
+
+// pls check 3(underflow), 16(LDRR) and the shifts in general

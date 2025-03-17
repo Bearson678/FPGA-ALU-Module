@@ -1,0 +1,45 @@
+module rom_A (
+    input address[6],
+    output element[32]
+  ) {
+ 
+    sig a[32];
+    
+  always {
+    case (address) {
+      0: a = 32b0000011; // ADD: positive numbers, A=3, B=5, output=8
+      1: a = 32h7FFFFFFF; // ADD: check for overflow, A=MAX_VALUE(+ve), B=1, output=MIN_VALUE
+      2: a = 32b0000111; // SUB: normal subtraction, A=7, B=3, output=4
+      3: a = 32h80000000; // SUB: check for underflow, A=MIN_VALUE, B=5, output=? done
+      4: a = 32b0000000; // SUB: check Boundary Values(), A=0, B=MAX_VALUE, output=negative MAX_VALUE
+      5: a = 32b0001000; // MUL: Positive values, A=8, B=5, output=40 done
+      6: a = 32b0100000; // MUL: zero multiplication, A=32, B=0, output=0 done
+      7: a = 32h7FFFFFFF; // MUL: multiplication by 1, A=MAX_VALUE, B=1, output=?
+      8: a = 32b01101110; // AND: with zero, A=110, B=0, output=0 done
+      9: a = 32b10101010; // AND: with complements, A=170, B=-171, ouput=0         !!! need to double check complments
+      10: a = 32b10101010; // AND: with ones, A=170, B=MAX_VALUE, ouput=170
+      11: a = 32b10101010; //OR: with zeroes, A=170, B=0, ouput=170
+      12: a = 32b10101010; // OR: with ones, A=170, B=MAX_VALUE, ouput=MAX_VALUE
+      13: a = 32b10101010; // OR: with self, check for identity, A=170, B=170, ouput=170
+      14: a = 32b10101010; // XOR: identity, A=170, B=0, ouput=170
+      15: a = 32b10101010; // XOR: complement, A=170, B=-171, ouput=MAX_VALUE    !!! need to double check complments
+      16: a = 32b10101010; // LDR: i think outputs A, A=170, B=5, output=170
+      17: a = 32b10101010; // SHL: zero shift, A=170, B=0, output=170
+      18: a = 32hFFFFFFFF; // SHL: max shift, A=-1, B=31, output=1 done
+      19: a = 32h0F00000F; // SHL: boundary A=0x0F00000F, B=4, output=0xF00000F0
+      20: a = 32b01010101; // SHR: zero shift, A=85, B=0, output=85 done
+      21: a = 32h80000000; // SHR: max shift, A=0x80000000, B=31, output=1
+      22: a = 32h80000000; // SRA: shift right with sign complement, A=0x80000000, B=4, output=0xF8000000
+      23: a = 32b0000101; // CMPEQ: true, A=5, B=5, output=1
+      24: a = 32b0000011; // CMPEQ: false, A=3, B=5, output=0
+      25: a = 32b0000011; // CMPLT: true, A=3, B=5, output=1
+      26: a = 32b0010000; // CMPLT: false if A greater than B, A=16, B=5, output=0
+      27: a = 32b0000101; // CMPLT: false if A = B, A=5, B=5, output=0
+      28: a = 32b0000011; // CMPLE: true, A=3, B=5, output=1
+      29: a = 32b00101000; // CMPLE: false, A=40, B=5, output=0
+      30: a = 32b00101000; // Division: normaal div, A=40, B=5, output=8
+      default: a = 32b0000000;
+    }
+        element = a;
+  }
+}
