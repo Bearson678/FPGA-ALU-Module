@@ -211,7 +211,7 @@ enum States_AUTO{
 
          case(states.q){
             States_MANUAL.IDLE:
-                if (io_button_edge.out[0] && ~manuallock.q){
+                if (~slow_clock_enable.q && io_button_edge.out[0] && ~manuallock.q){
                     manuallock.d = 1
                     
                     states.d = States_MANUAL.STORE16AFIRST
