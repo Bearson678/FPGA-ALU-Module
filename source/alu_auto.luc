@@ -73,6 +73,7 @@ enum States_AUTO{
         rom_b.address = counter_ROM.q
         rom_alufn.address = counter_ROM.q
         rom_out.address = counter_ROM.q
+        
         alu.a = c{afirsthalf.q,asecondthalf.q}
         alu.b = c{bfirsthalf.q,bsecondhalf.q}
         alu.alufn = alufn.q
@@ -200,7 +201,8 @@ enum States_AUTO{
             checkersig.d = 1
                 }
             else{
-                checkersig.d = 0      
+                checkersig.d = 0
+                result.d = counter_ROM.q
                  }
             states1.d = States_AUTO.IDLE
                 }  
@@ -227,7 +229,7 @@ enum States_AUTO{
                 else if (io_button_edge.out[3]&& manuallock.q){
                     states.d = States_MANUAL.SETALU
                 }
-                else if (io_dip[2][7]){
+                else if (io_dip[2][7]&& manuallock.q){
                     states.d = States_MANUAL.DISPLAY
                 }
             
